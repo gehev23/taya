@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🧩 Пазл — Мои картинки</title>
+<style>
+    * { box-sizing: border-box; user-select: none; }
+
+    body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        font-family: 'Segoe UI', Arial, sans-serif;
+        color: white;
+        padding: 20px;
+    }
+
+    h1 {
+        margin: 0 0 8px;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        font-size: 28px;
+    }
+
+    .level-badge {
+        font-size: 16px;
+        background: rgba(255,255,255,0.2);
+        padding: 6px 20px;
+        border-radius: 20px;
+        margin-bottom: 12px;
+        backdrop-filter: blur(5px);
+    }
+
+    .stats {
+        display: flex;
+        gap: 20px;
+        margin-bottom: 15px;
+        font-size: 16px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .stats span {
+        background: rgba(255,255,255,0.15);
+        padding: 6px 16px;
+        border-radius: 20px;
+        backdrop-filter: blur(5px);
+    }
+
+    .board {
+        display: grid;
+        background: rgba(0,0,0,0.3);
+        padding: 6px;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+        transition: all 0.3s;
+    }
+
+    .tile {
+        border-radius: 8px;
+        cursor: pointer;
+        transition: transform 0.15s, box-shadow 0.15s;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .tile:hover {
+        transform: scale(1.04);
+        box-shadow: 0 0 15px rgba(255,255,255,0.6);
+        z-index: 2;
+    }
+
+    .tile.selected {
+        box-shadow: 0 0 0 4px #ffe066, 0 0 20px #ffe066;
+        transform: scale(1.05);
+        z-index: 3;
+    }
+
+    .controls {
+        margin-top: 20px;
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    button {
+        padding: 10px 22px;
+        font-size: 15px;
+        font-weight: bold;
+        border: none;
+        border-radius: 30px;
+        cursor: pointer;
+        background: linear-gradient(135deg, #ff9a9e, #fad0c4);
+        color: #5a2a4a;
+        transition: transform 0.15s, box-shadow 0.15s;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        font-family: inherit;
+    }
+
+    button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+    }
+
+    .message {
+        margin-top: 15px;
+        font-size: 20px;
+        font-weight: bold;
+        min-height: 30px;
+        text-shadow: 2px 2px 6px rgba(0,0,0,0.5);
+        color: #ffe066;
+        text-align: center;
+    }
+
+    .overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.7);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+        backdrop-filter: blur(4px);
+    }
+
+    .overlay.show { display: flex; }
+
+    .modal {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        padding: 40px 50px;
+        border-radius: 20px;
+        text-align: center;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        border: 3px solid #ffe066;
+        max-width: 90vw;
+        animation: popIn 0.4s ease;
+    }
+
+    @keyframes popIn {
+        from { transform: scale(0.7); opacity: 0; }
+        to   { transform: scale(1);   opacity: 1; }
+    }
+
+    .modal h2 {
+        margin: 0 0 15px;
+        font-size: 32px;
+        color: #ffe066;
+        text-shadow: 2px 2px 8px rgba(0,0,0,0.5);
+    }
+
+    .modal p {
+        font-size: 18px;
+        margin: 10px 0 20px;
+    }
+
+    .modal button {
+        font-size: 17px;
+        padding: 12px 30px;
+    }
+
+    .preview-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.85);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 200;
+        cursor: pointer;
+    }
+
+    .preview-overlay.show { display: flex; }
+
+    .preview-overlay img {
+        max-width: 85vw;
+        max-height: 85vh;
+        border-radius: 12px;
+        box-shadow: 0 0 40px rgba(255,255,255,0.3);
+    }
+</style>
+</head>
+<body>
+
+<h1>🧩 Собери пазл</h1>
+<div class="level-badge" id="levelBadge">Уровень 1 из 3 · 3×3</div>
+
+<div class="stats">
+    <span>Ходы: <b id="moves">0</b></span>
+    <span>Собрано: <b id="correct">0</b></span>
+    <span>Всего ходов: <b id="totalMoves">0</b></span>
+</div>
+
+<div class="board" id="board"></div>
+
+<div class="controls">
+    <button id="newGame">🔄 Начать уровень заново</button>
+    <button id="hint">💡 Подсказка</button>
+    <button id="showImage">🖼 Показать картинку</button>
+</div>
+
+<div class="message" id="message"></div>
+
+<div class="overlay" id="winOverlay">
+    <div class="modal">
+        <h2 id="winTitle">🎉 Уровень пройден!</h2>
+        <p id="winText"></p>
+        <button id="nextLevelBtn">➡️ Следующий уровень</button>
+    </div>
+</div>
+
+<div class="preview-overlay" id="previewOverlay">
+    <img id="previewImg" alt="Полная картинка">
+</div>
+
+<script>
+    // =========================================================
+    //  👇👇👇  ВОТ ЗДЕСЬ ВСТАВЬТЕ СВОИ КАРТИНКИ  👇👇👇
+    //
+    //  Вариант A — файлы рядом с HTML (рекомендуется):
+    //      image: 'img/photo1.jpg'
+    //
+    //  Вариант B — ссылка из интернета:
+    //      image: 'https://example.com/photo.jpg'
+    //
+    //  Вариант C — base64 (длинная строка начинается с data:image/...)
+    //
+    //  Важно: картинки должны быть КВАДРАТНЫМИ.
+    //  Если не квадратные — они обрежутся по центру
+    //  (см. функцию loadImageAsSquare ниже).
+    // =========================================================
+    const LEVELS = [
+        {
+            name: 'Уровень 1 · 3×3',
+            size: 3,
+            tile: 120,
+            image: 'https://i.pinimg.com/originals/72/33/ad/7233ad673bbd25f91ea089da3ed610b1.jpg',        // ← ЗАМЕНИТЕ на свою картинку
+        },
+        {
+            name: 'Уровень 2 · 4×4',
+            size: 4,
+            tile: 100,
+            image: 'https://i.pinimg.com/originals/f3/de/84/f3de84e4c9b4474adcad8161a6d7ea86.jpg',        // ← ЗАМЕНИТЕ на свою картинку
+        },
+        {
+            name: 'Уровень 3 · 5×5',
+            size: 5,
+            tile: 90,
+            image: 'https://i.pinimg.com/736x/41/de/22/41de2217af91ccb571a725285f0ab42b.jpg',        // ← ЗАМЕНИТЕ на свою картинку
+        },
+    ];
+    // =========================================================
+    //  👆👆👆  КОНЕЦ НАСТРОЙКИ КАРТИНОК  👆👆👆
+    // =========================================================
+
+
+    // ---------------------------------------------------------
+    // Состояние игры
+    // ---------------------------------------------------------
+    let currentLevel = 0;
+    let SIZE = 3;
+    let TILE = 120;
+    let TOTAL = 9;
+    let tiles = [];
+    let selectedIndex = null;
+    let moves = 0;
+    let totalMoves = 0;
+    let solved = false;
+    let hintTile = null;
+    let levelImageURL = '';
+
+    const boardEl   = document.getElementById('board');
+    const movesEl   = document.getElementById('moves');
+    const correctEl = document.getElementById('correct');
+    const totalMovesEl = document.getElementById('totalMoves');
+    const messageEl = document.getElementById('message');
+    const levelBadge = document.getElementById('levelBadge');
+    const winOverlay = document.getElementById('winOverlay');
+    const winTitle = document.getElementById('winTitle');
+    const winText = document.getElementById('winText');
+    const nextLevelBtn = document.getElementById('nextLevelBtn');
+    const previewOverlay = document.getElementById('previewOverlay');
+    const previewImg = document.getElementById('previewImg');
+
+    // ---------------------------------------------------------
+    // Приведение картинки к квадрату через canvas
+    // (обрезает центральную квадратную часть и масштабирует
+    //  под нужный размер пазла)
+    // ---------------------------------------------------------
+    function loadImageAsSquare(src, outSize) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => resolve(src);   // возвращаем исходный URL
+        img.onerror = () => reject(new Error('Не удалось загрузить: ' + src));
+        img.src = src;
+    });
+    }
+            };
+            img.onerror = () => reject(new Error('Не удалось загрузить: ' + src));
+            img.src = src;
+        });
+    }
+
+    // ---------------------------------------------------------
+    // Загрузка уровня
+    // ---------------------------------------------------------
+    async function loadLevel(index) {
+        currentLevel = index;
+        const cfg = LEVELS[index];
+
+        SIZE = cfg.size;
+        TILE = cfg.tile;
+        TOTAL = SIZE * SIZE;
+
+        boardEl.style.gridTemplateColumns = `repeat(${SIZE}, ${TILE}px)`;
+        boardEl.style.gridTemplateRows = `repeat(${SIZE}, ${TILE}px)`;
+
+        levelBadge.textContent = `${cfg.name} (уровень ${index + 1} из ${LEVELS.length})`;
+        messageEl.textContent = '';
+        winOverlay.classList.remove('show');
+        boardEl.innerHTML = '<div style="color:#fff;padding:20px;grid-column:1/-1">Загрузка картинки...</div>';
+
+        // Готовим квадратную картинку нужного размера
+        const outSize = SIZE * TILE;
+        try {
+            levelImageURL = await loadImageAsSquare(cfg.image, outSize);
+        } catch (e) {
+            messageEl.textContent =
+                `⚠️ Не удалось загрузить картинку "${cfg.image}". ` +
+                `Проверьте путь к файлу.`;
+            boardEl.innerHTML = '';
+            return;
+        }
+
+        // Сброс
+        selectedIndex = null;
+        hintTile = null;
+        solved = false;
+
+        tiles = shuffle([...Array(TOTAL).keys()]);
+        if (tiles.every((v, i) => v === i)) {
+            [tiles[0], tiles[1]] = [tiles[1], tiles[0]];
+        }
+
+        moves = 0;
+        movesEl.textContent = '0';
+        totalMovesEl.textContent = totalMoves;
+        updateCorrectCount();
+        render();
+    }
+
+    function shuffle(arr) {
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+    }
+
+    function countCorrect() {
+        return tiles.reduce((a, f, i) => a + (f === i ? 1 : 0), 0);
+    }
+
+    function updateCorrectCount() {
+        const n = countCorrect();
+        correctEl.textContent = `${n}/${TOTAL}`;
+        if (n === TOTAL && !solved) {
+            solved = true;
+            totalMoves += moves;
+            totalMovesEl.textContent = totalMoves;
+
+            const isLast = currentLevel === LEVELS.length - 1;
+            winTitle.textContent = isLast ? '🏆 Все уровни пройдены!' : '🎉 Уровень пройден!';
+            winText.textContent = isLast
+                ? `Отлично! Вы собрали все ${LEVELS.length} уровня за ${totalMoves} ходов!`
+                : `${LEVELS[currentLevel].name} собран за ${moves} ходов.`;
+            nextLevelBtn.textContent = isLast ? '🔄 Играть снова' : '➡️ Следующий уровень';
+            setTimeout(() => winOverlay.classList.add('show'), 350);
+        }
+    }
+
+    // ---------------------------------------------------------
+    // Отрисовка
+    // ---------------------------------------------------------
+    function render() {
+        boardEl.innerHTML = '';
+        const bgSize = SIZE * TILE;
+
+        for (let pos = 0; pos < TOTAL; pos++) {
+            const frag = tiles[pos];
+            const tile = document.createElement('div');
+            tile.className = 'tile';
+            tile.style.width = TILE + 'px';
+            tile.style.height = TILE + 'px';
+            tile.style.backgroundImage = `url(${levelImageURL})`;
+            tile.style.backgroundSize = `${bgSize}px ${bgSize}px`;
+
+            const row = Math.floor(frag / SIZE);
+            const col = frag % SIZE;
+            tile.style.backgroundPosition = `${-col * TILE}px ${-row * TILE}px`;
+
+            if (frag === pos) {
+                tile.style.outline = '2px solid rgba(76,255,138,0.9)';
+                tile.style.outlineOffset = '-2px';
+            }
+
+            if (selectedIndex === pos) tile.classList.add('selected');
+
+            if (hintTile === pos) {
+                tile.style.boxShadow = '0 0 0 4px #ff5252, 0 0 25px #ff5252';
+                tile.style.zIndex = '3';
+            }
+
+            tile.addEventListener('click', () => onTileClick(pos));
+            boardEl.appendChild(tile);
+        }
+    }
+
+    function onTileClick(pos) {
+        if (solved) return;
+
+        if (selectedIndex === null) {
+            selectedIndex = pos;
+        } else if (selectedIndex === pos) {
+            selectedIndex = null;
+        } else {
+            [tiles[selectedIndex], tiles[pos]] = [tiles[pos], tiles[selectedIndex]];
+            moves++;
+            movesEl.textContent = moves;
+            selectedIndex = null;
+            hintTile = null;
+            updateCorrectCount();
+            render();
+            return;
+        }
+        render();
+    }
+
+    // ---------------------------------------------------------
+    // Кнопки
+    // ---------------------------------------------------------
+    document.getElementById('newGame').addEventListener('click', () => {
+        loadLevel(currentLevel);
+    });
+
+    document.getElementById('hint').addEventListener('click', () => {
+        if (solved) return;
+        const wrong = [];
+        tiles.forEach((f, i) => { if (f !== i) wrong.push(i); });
+        if (!wrong.length) return;
+
+        const fromPos = wrong[0];
+        const targetPos = tiles[fromPos];
+        hintTile = targetPos;
+        selectedIndex = fromPos;
+        render();
+        messageEl.textContent =
+            `Фрагмент из позиции ${fromPos + 1} должен стоять в позиции ${targetPos + 1}`;
+    });
+
+    document.getElementById('showImage').addEventListener('click', () => {
+        previewImg.src = levelImageURL;
+        previewOverlay.classList.add('show');
+    });
+
+    previewOverlay.addEventListener('click', () => {
+        previewOverlay.classList.remove('show');
+    });
+
+    nextLevelBtn.addEventListener('click', () => {
+        winOverlay.classList.remove('show');
+        if (currentLevel < LEVELS.length - 1) {
+            loadLevel(currentLevel + 1);
+        } else {
+            totalMoves = 0;
+            loadLevel(0);
+        }
+    });
+
+    // Старт
+    loadLevel(0);
+</script>
+</body>
+</html>
